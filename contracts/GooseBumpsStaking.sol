@@ -19,7 +19,7 @@ contract GooseBumpsStaking is Ownable, Pausable {
     uint256 public immutable rewardPerBlockTokenN;
     uint256 public immutable rewardPerBlockTokenD; // Must be greater than zero
 
-    IERC20 public immutable stakeToken;
+    IERC20 public immutable lpToken;
     IERC20 public immutable rewardsToken;
 
     address public TREASURY;
@@ -36,16 +36,20 @@ contract GooseBumpsStaking is Ownable, Pausable {
     event LogSetRewardWallet(address indexed newRewardWallet);
 
     constructor(
-        IERC20 _stakeToken,
+        IERC20 _lpToken,
         IERC20 _rewardsToken,
         address _treasury,
         address _rewardWallet,
         uint256 _rewardPerBlockTokenN,
         uint256 _rewardPerBlockTokenD
     ) {
-        stakeToken = _stakeToken;
+        require(address(_lpToken) != address(0), 'lpToken: cannot be address zero' );
+        lpToken = _lpToken;
+        require(address(_rewardsToken) != address(0), 'rewardsToken: cannot be address zero' );
         rewardsToken = _rewardsToken;
+        require(address(_treasury) != address(0), 'TREASURY: cannot be address zero' );
         TREASURY = _treasury;
+        require(address(_rewardWallet) != address(0), 'REWARD_WALLET: cannot be address zero' );
         REWARD_WALLET = _rewardWallet;
         rewardPerBlockTokenN = _rewardPerBlockTokenN;
         rewardPerBlockTokenD = _rewardPerBlockTokenD;
@@ -55,7 +59,7 @@ contract GooseBumpsStaking is Ownable, Pausable {
         require(_amount > 0, "Staking amount must be greater than zero");
 
         require(
-            stakeToken.balanceOf(msg.sender) >= _amount,
+            lpToken.balanceOf(msg.sender) >= _amount,
             "Insufficient lpToken balance"
         );
 
@@ -64,7 +68,7 @@ contract GooseBumpsStaking is Ownable, Pausable {
         }
 
         require(
-            stakeToken.transferFrom(msg.sender, TREASURY, _amount),
+            lpToken.transferFrom(msg.sender, TREASURY, _amount),
             "TransferFrom fail"
         );
 
@@ -83,7 +87,7 @@ contract GooseBumpsStaking is Ownable, Pausable {
         staker[msg.sender].stakeRewards = 0;
 
         require(
-            stakeToken.transferFrom(TREASURY, msg.sender, _amount),
+            lpToken.transferFrom(TREASURY, msg.sender, _amount),
             "TransferFrom fail"
         );
 
@@ -122,11 +126,15 @@ contract GooseBumpsStaking is Ownable, Pausable {
     }
 
     function setTreasury(address _tresuary) external onlyOwner {
+        require(address( _tresuary) != address(0), 'TREASURY: cannot be address zero' );
+        require(address(TREASURY) != address(0), 'TREASURY:setting to same value' );
         TREASURY = _tresuary;
         emit LogSetTreasury(TREASURY);
     }
 
     function setRewardWallet(address _rewardWallet) external onlyOwner {
+         require(address( _rewardWallet) != address(0), 'TREASURY: cannot be address zero' );
+        require(address(REWARD_WALLET) != address(0), 'TREASURY:setting to same value' );
         REWARD_WALLET = _rewardWallet;
         emit LogSetRewardWallet(REWARD_WALLET);
     }

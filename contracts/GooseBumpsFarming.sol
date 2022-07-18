@@ -43,10 +43,13 @@ contract GooseBumpsFarming is Ownable, Pausable {
         uint256 _rewardPerBlockTokenN,
         uint256 _rewardPerBlockTokenD
     ) {
-        
+        require(address(_lpToken) != address(0), 'lpToken: cannot be address zero' );
         lpToken = _lpToken;
+        require(address(_rewardsToken) != address(0), 'rewardsToken: cannot be address zero' );
         rewardsToken = _rewardsToken;
+        require(address(_treasury) != address(0), 'TREASURY: cannot be address zero' );
         TREASURY = _treasury;
+        require(address(_rewardWallet) != address(0), 'REWARD_WALLET: cannot be address zero' );
         REWARD_WALLET = _rewardWallet;
         rewardPerBlockTokenN = _rewardPerBlockTokenN;
         rewardPerBlockTokenD = _rewardPerBlockTokenD;
@@ -123,11 +126,15 @@ contract GooseBumpsFarming is Ownable, Pausable {
     }
 
     function setTreasury(address _tresuary) external onlyOwner {
+        require(address( _tresuary) != address(0), 'TREASURY: cannot be address zero' );
+        require(address(TREASURY) != address(0), 'TREASURY:setting to same value' );
         TREASURY = _tresuary;
         emit LogSetTreasury(TREASURY);
     }
 
     function setRewardWallet(address _rewardWallet) external onlyOwner {
+         require(address( _rewardWallet) != address(0), 'TREASURY: cannot be address zero' );
+        require(address(REWARD_WALLET) != address(0), 'TREASURY:setting to same value' );
         REWARD_WALLET = _rewardWallet;
         emit LogSetRewardWallet(REWARD_WALLET);
     }
