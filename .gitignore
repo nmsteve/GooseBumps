@@ -1,0 +1,8 @@
+node_modules
+.DS_Store
+hardhat.config.js
+artifacts
+cache
+coverage
+.env
+coverage.json
