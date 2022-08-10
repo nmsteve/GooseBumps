@@ -5,7 +5,7 @@ const { utils } = require("ethers");
 
   
   
-  describe.only("GooseBumpsFarming Testing", function () {
+  describe("GooseBumpsStaking Testing", function () {
 
     before(async function () {
 
@@ -18,7 +18,7 @@ const { utils } = require("ethers");
       //get contract factory
       this.LP = await ethers.getContractFactory("MockBUSD")  
       this.Reward = await ethers.getContractFactory("MockBUSD");
-      this.Farm = await ethers.getContractFactory("GooseBumpsFarming")
+      this.Farm = await ethers.getContractFactory("GooseBumpsStaking")
 
       //deploy LP and Reward Contract
       this.LP = await this.LP.deploy()
@@ -29,22 +29,27 @@ const { utils } = require("ethers");
        await this.Reward.deployed()
 
       //deploy Farm and get address
-      this.Farm = await this.Farm.deploy(this.LP.address, this.Reward.address, user1.address, owner.address,10,100)
+      this.Farm = await this.Farm.deploy(
+        this.LP.address, this.Reward.address, user1.address, owner.address,10,100)
       await this.Farm.deployed()
 
     //Print out deployed contracts address
-      console.log(` \n  LP deployed at: ${this.LP.address}\n  Reward deployed at: ${this.Reward.address}\n  Farm deployed at: ${this.Farm.address}`)
+      console.log(` \n  LP deployed at: ${this.LP.address}
+      \n  Reward deployed at: ${this.Reward.address}\n  Farm deployed at: ${this.Farm.address}`)
 
     });
 
     describe('Set Operations', function(){
       
       it('sets Treasury', async function(){
-        await expect(this.Farm.setTreasury(user3.address)).to.emit(this.Farm,"LogSetTreasury").withArgs(user3.address)
+        await expect(this.Farm.setTreasury(user3.address)).to.emit(
+          this.Farm,"LogSetTreasury").withArgs(user3.address)
       })
 
       it('sets Reward Wallet', async function(){
-        await expect(this.Farm.setRewardWallet(user4.address)).to.emit(this.Farm, "LogSetRewardWallet").withArgs(user4.address)
+        await expect(
+          this.Farm.setRewardWallet(user4.address)).to.emit(
+            this.Farm, "LogSetRewardWallet").withArgs(user4.address)
       })
 
       it('sets pause', async function(){
