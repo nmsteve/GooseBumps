@@ -6,7 +6,7 @@ const {setTimeout} = require("timers/promises")
 
   
   
-  describe("StakingWithReflection", function () {
+  describe("StakingWithFixedLockTimeAndReflection", function () {
 
     before(async function () {
 
@@ -19,7 +19,7 @@ const {setTimeout} = require("timers/promises")
       //get contract factory
       this.LP = await ethers.getContractFactory("MockBUSD")  
       this.Reward = await ethers.getContractFactory("MockBUSD");
-      this.Farm = await ethers.getContractFactory("GooseBumpsStakingWithReflection")
+      this.Farm = await ethers.getContractFactory("GooseBumpsStakingWithFixedLockTimeAndReflection")
       this.RD = await ethers.getContractFactory("ReflectionsDistributor")
       this.ST =  await ethers.getContractFactory("StakingTreasury")
 
@@ -53,6 +53,9 @@ const {setTimeout} = require("timers/promises")
       await this.ST. setReflectionsDistributor(this.RD.address)
       
 
+      //set Lock duration
+      await expect(this.Farm.setLockTime(1)).to.emit(this.Farm, "LogSetLockTime").withArgs(1)
+
     //Print out deployed contracts addres
       console.log(`\nLP deployed at: ${this.LP.address}`)
       console.log(`Reward deployed at: ${this.Reward.address}`) 
@@ -60,7 +63,7 @@ const {setTimeout} = require("timers/promises")
      });
 
    
-    it('stakes', async function(){
+    it('stakes-1', async function(){
       
       //Transfer from owner to user1 LP token to stake
       await this.LP.transfer(user1.address, utils.parseEther('1000'))
@@ -90,6 +93,10 @@ const {setTimeout} = require("timers/promises")
         utils.parseEther('0'))).to.be.revertedWith(
           "Staking amount must be greater than zero")
 
+      //reverts 2: require(staker[msg.sender].amount >= _amount, "Insufficient unstake");
+      await expect(this.Farm.connect(user1).stake(
+        utils.parseEther('1'))).to.be.revertedWith("Insufficient stakeToken balance")
+
 
     //stake user2
     console.log('\x1b[33m%s\x1b[0m', 'User2')
@@ -116,13 +123,74 @@ const {setTimeout} = require("timers/promises")
 
     })
 
+    it('stakes-2', async function(){
+      
+        //Transfer from owner to user1 LP token to stake
+        await this.LP.transfer(user1.address, utils.parseEther('1000'))
+        //user1 approve Farm to use tokens
+        await this.LP.connect(user1).approve(this.ST.address, utils.parseEther('1000'))
+      
+        //stake User1
+        console.log('\x1b[33m%s\x1b[0m', 'User1')
+        await expect(this.Farm.connect(user1).stake(
+          utils.parseEther('1000'))).to.emit(
+            this.Farm, 'LogStake').withArgs(user1.address, utils.parseEther('1000'))
+        
+         //check staker info amount
+         const {amount,startBlock,stakeRewards} = await this.Farm.staker(user1.address)
+         console.log(`\n\tAmount staked: ${utils.formatEther(amount)}`)
+         console.log(`\tstartBlock: ${startBlock}`) 
+         console.log(`\tstakeRewards: ${stakeRewards}`)
+  
+         //print out TREASURY address
+        console.log(`\n\tTREASURY address: ${ await this.Farm.TREASURY()}`)
+         //check Treasury bal
+        console.log(`\tTREASURY BaL: ${utils.formatEther(await this.LP.balanceOf(this.ST.address))}`)
+        console.log(`\tPending Rewards ${await this.RD.pendingReward(user1.address)}`)
+  
+        //reverts 1: require(_amount > 0, "Staking amount must be greater than zero");
+        await expect(this.Farm.connect(user1).stake(
+          utils.parseEther('0'))).to.be.revertedWith(
+            "Staking amount must be greater than zero")
+  
+        //reverts 2: require(staker[msg.sender].amount >= _amount, "Insufficient unstake");
+        await expect(this.Farm.connect(user1).stake(
+          utils.parseEther('1'))).to.be.revertedWith("Insufficient stakeToken balance")
+  
+  
+      //stake user2
+      console.log('\x1b[33m%s\x1b[0m', 'User2')
+      //Transfer from owner to user1 LP token to stake
+      await this.LP.transfer(user2.address, utils.parseEther('500'))
+      //user1 approve Farm to use tokens
+      await this.LP.connect(user2).approve(this.ST.address, utils.parseEther('500'))
+    
+      //stake User2
+      await expect(this.Farm.connect(user2).stake(
+        utils.parseEther('500'))).to.emit(
+          this.Farm, 'LogStake').withArgs(user2.address, utils.parseEther('500'))
+  
+      // //check staker info amount
+      setTimeout('10000')
+      const {amount2,startBlock2,stakeRewards2} = await this.Farm.staker(user2.address)
+      console.log(`\n\tAmount staked: ${amount2}`)
+      console.log(`\tstartBlock: ${startBlock2}`) 
+      console.log(`\tstakeRewards: ${stakeRewards2}`)
+  
+      //check Treasury bal
+     console.log(`\tTREASURY BaL: ${utils.formatEther(await this.LP.balanceOf(this.ST.address))}`)
+     console.log(`\tPending Rewards ${await this.RD.pendingReward(user2.address)}`)
+  
+      })
+
     
     it('unstakes', async function(){
 
+     
   
       //approve send of rewards
       await this.Reward.transfer(rewardWallet.address,utils.parseEther('1000000') )
-      await this.Reward.connect(rewardWallet).approve(this.Farm.address, utils.parseEther('1000'))
+      await this.Reward.connect(rewardWallet).approve(this.Farm.address, utils.parseEther('3000'))
       //approve withdraw of LP from Treasury
 
       //connect user 1 and unstake 500
@@ -140,12 +208,14 @@ const {setTimeout} = require("timers/promises")
 
       //reverts 2: require(staker[msg.sender].amount >= _amount, "Insufficient unstake");
       await expect(this.Farm.connect(user1).unstake(
-        utils.parseEther('600'))).to.be.revertedWith("Insufficient unstake")
+        utils.parseEther('1600'))).to.be.revertedWith("Insufficient unstake")
+
     
     })
 
     it('withdraws Rewards', async function(){
-      await this.Reward.connect(rewardWallet).approve(this.Farm.address, utils.parseEther('500'))
+        
+      await this.Reward.connect(rewardWallet).approve(this.Farm.address, utils.parseEther('3000'))
       expect(await this.Farm.connect(user1).withdrawRewards()).to.emit(this.Farm,'LogRewardsWithdrawal')
 
       //check staker info amount
@@ -157,7 +227,10 @@ const {setTimeout} = require("timers/promises")
     })
 
     it('gets Total Rewards', async function(){
-      console.log(`Total Rewards:${await this.Farm.getTotalRewards(user1.address)}`)
+        console.log(`Total Rewards:${await this.Farm.getTotalRewards(user1.address)}`)
+        const{amount,rewardDebt,} =await this.RD.getUserInfo(user1.address)
+        console.log(`Rewards rewardDebt:${amount}`)
+
     })
 
     describe('Set Operations', function(){
@@ -184,6 +257,40 @@ const {setTimeout} = require("timers/promises")
       })
 
 
+    })
+
+    describe('StakingTreasury', function (){
+        it('setStakingVault', async function(){
+            await expect(this.ST.setStakingVault(
+                user1.address)).to.emit(
+                    this.ST, 'LogSetStakingVault').withArgs(user1.address)
+        })
+
+        it('setMinAmountReflection', async function(){
+            await expect(this.ST.setMinAmountReflection(
+                1)).to.emit(
+                    this.ST, 'LogSetMinAmountReflection').withArgs(1)
+        })
+
+        it('setReflectionsDistributor', async function(){
+            await expect(this.ST.setReflectionsDistributor(
+                user1.address)).to.emit(
+                    this.ST, 'LogSetReflectionsDistributor').withArgs(user1.address)
+        })
+    })
+
+    describe('ReflectionsDistributor', function (){
+        it('setTreasury', async function(){
+            await expect(this.RD.setTreasury(
+                user1.address)).to.emit(
+                    this.RD, 'LogSetTreasury').withArgs(user1.address)
+        })
+
+        it('setMinAmountReflection', async function(){
+            await expect(this.RD.setMinAmountReflection(
+                1)).to.emit(
+                    this.RD, 'LogSetMinAmountReflection').withArgs(1)
+        })
     })
 
 

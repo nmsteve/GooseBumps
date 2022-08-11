@@ -85,7 +85,8 @@ contract StakingTreasury is Ownable {
         onlyStakingVault
     {
         transferReflections();
-
+    
+        
         require(stakeToken.transfer(staker, amount), "Transfer fail");
         totalStakedBalance -= amount;
 
