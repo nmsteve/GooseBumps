@@ -2,10 +2,12 @@
 const { expect,} = require("chai");
 const { ethers } = require("hardhat");
 const { utils } = require("ethers");
+const {setTimeout} = require("timers/promises")
+
 
   
   
-  describe("GooseBumpsStaking Testing", function () {
+  describe("StakingWithFixedLockTime", function () {
 
     before(async function () {
 
@@ -18,38 +20,39 @@ const { utils } = require("ethers");
       //get contract factory
       this.LP = await ethers.getContractFactory("MockBUSD")  
       this.Reward = await ethers.getContractFactory("MockBUSD");
-      this.Farm = await ethers.getContractFactory("GooseBumpsStaking")
-
+      this.Farm = await ethers.getContractFactory("GooseBumpsStakingWithFixedLockTime")
+      
       //deploy LP and Reward Contract
       this.LP = await this.LP.deploy()
       this.Reward  =await this.Reward.deploy()
+    
 
       //Get instance of deployed LP and Reward  (address needed to deploy Farm)
        await this.LP.deployed()
        await this.Reward.deployed()
 
+    
       //deploy Farm and get address
       this.Farm = await this.Farm.deploy(
-        this.LP.address, this.Reward.address, user1.address, owner.address,10,100)
-      await this.Farm.deployed()
+          this.LP.address, this.Reward.address, user1.address, owner.address,10,100)
+            await this.Farm.deployed()
 
     //Print out deployed contracts address
       console.log(` \n  LP deployed at: ${this.LP.address}
       \n  Reward deployed at: ${this.Reward.address}\n  Farm deployed at: ${this.Farm.address}`)
+
+      await this.Farm.setLockTime(1)
 
     });
 
     describe('Set Operations', function(){
       
       it('sets Treasury', async function(){
-        await expect(this.Farm.setTreasury(user3.address)).to.emit(
-          this.Farm,"LogSetTreasury").withArgs(user3.address)
+        await expect(this.Farm.setTreasury(user3.address)).to.emit(this.Farm,"LogSetTreasury").withArgs(user3.address)
       })
 
       it('sets Reward Wallet', async function(){
-        await expect(
-          this.Farm.setRewardWallet(user4.address)).to.emit(
-            this.Farm, "LogSetRewardWallet").withArgs(user4.address)
+        await expect(this.Farm.setRewardWallet(user4.address)).to.emit(this.Farm, "LogSetRewardWallet").withArgs(user4.address)
       })
 
       it('sets pause', async function(){
@@ -65,20 +68,6 @@ const { utils } = require("ethers");
 
     })
 
-    // describe('Get Operation', function() {
-    //   it('Reads', async function(){
-
-    //     console.log(`  rewardPerBlockTokenN: ${await this.Farm.rewardPerBlockTokenN()}
-    //   \n rewardPerBlockTokenD: ${await this.Farm.rewardPerBlockTokenD()}
-    //   \n lpToken: ${await this.Farm.lpToken()}
-    //   \n rewardsToken: ${await this.Farm.rewardsToken()}
-    //   \n REWARD_WALLET: ${await this.Farm.REWARD_WALLET()}`)
-
-    //   })
-      
-
-    // })
-
     it('stakes', async function(){
       
       //Transfer from owner to user2 LP token to stake
@@ -86,7 +75,9 @@ const { utils } = require("ethers");
       //user2 approve Farm to use tokens
       await this.LP.connect(user2).approve(this.Farm.address, utils.parseEther('1000'))
       //stake
-      await expect(this.Farm.connect(user2).stake(utils.parseEther('1000'))).to.emit(this.Farm, 'LogStake').withArgs(user2.address, utils.parseEther('1000'))
+      await expect(this.Farm.connect(user2).stake(
+        utils.parseEther('500'))).to.emit(this.Farm, 'LogStake').withArgs(
+          user2.address, utils.parseEther('500'))
       
        //check staker info amount
        const {amount,startBlock,stakeRewards} = await this.Farm.staker(user2.address)
@@ -98,9 +89,18 @@ const { utils } = require("ethers");
       console.log(` TREASURY BAL: ${utils.formatEther(await this.LP.balanceOf(user1.address))}`)
 
       //reverts 1: require(_amount > 0, "Staking amount must be greater than zero");
-      await expect(this.Farm.connect(user2).stake(utils.parseEther('0'))).to.be.revertedWith("Staking amount must be greater than zero")
-      //reverts 2: require(staker[msg.sender].amount >= _amount, "Insufficient unstake");
-      await expect(this.Farm.connect(user2).stake(utils.parseEther('1'))).to.be.revertedWith("Insufficient lpToken balance")
+      await expect(this.Farm.connect(user2).stake(
+        utils.parseEther('0'))).to.be.revertedWith("Staking amount must be greater than zero")
+     
+      await expect(this.Farm.connect(user2).stake(
+        utils.parseEther('500'))).to.emit(this.Farm, 'LogStake').withArgs(
+          user2.address, utils.parseEther('500'))
+
+       //reverts 2: require(staker[msg.sender].amount >= _amount, "Insufficient unstake");
+      await expect(this.Farm.connect(user2).stake(
+        utils.parseEther('1'))).to.be.revertedWith("Insufficient lpToken balance")
+
+      await expect(this.Farm.withdrawRewards()).to.be.revertedWith('Insufficient rewards balance')
 
     })
     
@@ -109,16 +109,22 @@ const { utils } = require("ethers");
       await this.Reward.approve(this.Farm.address, utils.parseEther('1000'))
       //approve withdraw of LP from Treasury
       await this.LP.connect(user1).approve(this.Farm.address, utils.parseEther('1000'))
+
       //connect user 2 and unstake 500
-      await expect(this.Farm.connect(user2).unstake(utils.parseEther('500'))).to.emit(this.Farm,'LogUnstake')
+    await expect(this.Farm.connect(user2).unstake(
+        utils.parseEther('500'))).to.emit(this.Farm,'LogUnstake')
+      
       //check staker info amount
       const {amount,startBlock,stakeRewards} = await this.Farm.staker(user2.address)
-      console.log(` Amount Left: ${utils.formatEther(amount)}\n endBlock: ${await this.provider.getBlockNumber()}\n stakeRewards:${utils.formatEther(await this.Reward.balanceOf(user2.address))}`)
+      console.log(` Amount Left: ${utils.formatEther(amount)}\n endBlock: ${await this.provider.getBlockNumber()}
+      \n stakeRewards:${utils.formatEther(await this.Reward.balanceOf(user2.address))}`)
 
-      //reverts 1: require(_amount > 0, "Unstaking amount must be greater than zero");
-      await expect(this.Farm.connect(user2).unstake(utils.parseEther('0'))).to.be.revertedWith("Unstaking amount must be greater than zero")
-      //reverts 2: require(staker[msg.sender].amount >= _amount, "Insufficient unstake");
-      await expect(this.Farm.connect(user2).unstake(utils.parseEther('600'))).to.be.revertedWith("Insufficient unstake")
+      //reverts 2: require(_amount > 0, "Unstaking amount must be greater than zero");
+      await expect(this.Farm.connect(user2).unstake(
+        utils.parseEther('0'))).to.be.revertedWith("Unstaking amount must be greater than zero")
+      //reverts 3: require(staker[msg.sender].amount >= _amount, "Insufficient unstake");
+      await expect(this.Farm.connect(user2).unstake(
+        utils.parseEther('600'))).to.be.revertedWith("Insufficient unstake")
 
     })
 

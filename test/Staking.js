@@ -5,12 +5,14 @@ const { utils } = require("ethers");
 
   
   
-  describe.only("GooseBumpsStakingWithReflection Testing", function () {
+  describe("Staking", function () {
 
     before(async function () {
 
       //get signers
       [owner, user1, user2, user3, user4 ] = await ethers.getSigners();
+
+      addressZero = '0x0000000000000000000000000000000000000000'
 
       //get provider
       this.provider = ethers.provider;
@@ -19,8 +21,9 @@ const { utils } = require("ethers");
       this.LP = await ethers.getContractFactory("MockBUSD")  
       this.Reward = await ethers.getContractFactory("MockBUSD");
       this.Farm = await ethers.getContractFactory("GooseBumpsStaking")
+      
 
-      //deploy LP and Reward Contract
+    // })
       this.LP = await this.LP.deploy()
       this.Reward  =await this.Reward.deploy()
 
@@ -28,28 +31,42 @@ const { utils } = require("ethers");
        await this.LP.deployed()
        await this.Reward.deployed()
 
+   //Revert 1:  'lpToken: cannot be address zero'
+   await expect(this.Farm.deploy(
+    addressZero, this.Reward.address, user1.address, owner.address,10,100)).to.be.revertedWith(
+      'lpToken: cannot be address zero')
+  //Revert 2:  'rewardsToken: cannot be address zero'
+   await expect(this.Farm.deploy(
+    this.LP.address, addressZero, user1.address, owner.address,10,100)).to.be.revertedWith(
+      'rewardsToken: cannot be address zero')
+  //Revert 3:  'TREASURY: cannot be address zero'
+  await expect(this.Farm.deploy(
+    this.LP.address, this.Reward.address, addressZero, owner.address,10,100)).to.be.revertedWith(
+      'TREASURY: cannot be address zero')
+  //Revert 3:  REWARD_WALLET: cannot be address zero'
+  await expect(this.Farm.deploy(
+    this.LP.address, this.Reward.address, user1.address, addressZero,10,100)).to.be.revertedWith(
+      'REWARD_WALLET: cannot be address zero')
+
+
+
       //deploy Farm and get address
-      this.Farm = await this.Farm.deploy(
-        this.LP.address, this.Reward.address, user1.address, owner.address,10,100)
+      this.Farm = await this.Farm.deploy(this.LP.address, this.Reward.address, user1.address, owner.address,10,100)
       await this.Farm.deployed()
 
     //Print out deployed contracts address
-      console.log(` \n  LP deployed at: ${this.LP.address}
-      \n  Reward deployed at: ${this.Reward.address}\n  Farm deployed at: ${this.Farm.address}`)
+      console.log(` \n  LP deployed at: ${this.LP.address}\n  Reward deployed at: ${this.Reward.address}\n  Farm deployed at: ${this.Farm.address}`)
 
     });
 
     describe('Set Operations', function(){
       
       it('sets Treasury', async function(){
-        await expect(this.Farm.setTreasury(user3.address)).to.emit(
-          this.Farm,"LogSetTreasury").withArgs(user3.address)
+        await expect(this.Farm.setTreasury(user3.address)).to.emit(this.Farm,"LogSetTreasury").withArgs(user3.address)
       })
 
       it('sets Reward Wallet', async function(){
-        await expect(
-          this.Farm.setRewardWallet(user4.address)).to.emit(
-            this.Farm, "LogSetRewardWallet").withArgs(user4.address)
+        await expect(this.Farm.setRewardWallet(user4.address)).to.emit(this.Farm, "LogSetRewardWallet").withArgs(user4.address)
       })
 
       it('sets pause', async function(){
@@ -65,32 +82,23 @@ const { utils } = require("ethers");
 
     })
 
-    // describe('Get Operation', function() {
-    //   it('Reads', async function(){
-
-    //     console.log(`  rewardPerBlockTokenN: ${await this.Farm.rewardPerBlockTokenN()}
-    //   \n rewardPerBlockTokenD: ${await this.Farm.rewardPerBlockTokenD()}
-    //   \n lpToken: ${await this.Farm.lpToken()}
-    //   \n rewardsToken: ${await this.Farm.rewardsToken()}
-    //   \n REWARD_WALLET: ${await this.Farm.REWARD_WALLET()}`)
-
-    //   })
-      
-
-    // })
-
     it('stakes', async function(){
       
       //Transfer from owner to user2 LP token to stake
       await this.LP.transfer(user2.address, utils.parseEther('1000'))
       //user2 approve Farm to use tokens
       await this.LP.connect(user2).approve(this.Farm.address, utils.parseEther('1000'))
+
       //stake
-      await expect(this.Farm.connect(user2).stake(utils.parseEther('1000'))).to.emit(this.Farm, 'LogStake').withArgs(user2.address, utils.parseEther('1000'))
+      await expect(this.Farm.connect(user2).stake(
+        utils.parseEther('1000'))).to.emit(
+          this.Farm, 'LogStake').withArgs(user2.address, utils.parseEther('1000'))
       
        //check staker info amount
        const {amount,startBlock,stakeRewards} = await this.Farm.staker(user2.address)
-       console.log(`\n Amount staked: ${utils.formatEther(amount)}\n startBlock: ${startBlock}\n stakeRewards: ${stakeRewards}`)
+       console.log(`Amount staked: ${utils.formatEther(amount)}`)
+       console.log(`startBlock: ${startBlock}`)
+       console.log( `slistakeRewards: ${stakeRewards}`)
 
        //print out TREASURY address
       console.log(`\n TREASURY address: ${ await this.Farm.TREASURY()}`)
@@ -98,9 +106,14 @@ const { utils } = require("ethers");
       console.log(` TREASURY BAL: ${utils.formatEther(await this.LP.balanceOf(user1.address))}`)
 
       //reverts 1: require(_amount > 0, "Staking amount must be greater than zero");
-      await expect(this.Farm.connect(user2).stake(utils.parseEther('0'))).to.be.revertedWith("Staking amount must be greater than zero")
+      await expect(this.Farm.connect(user2).stake(
+        utils.parseEther('0'))).to.be.revertedWith(
+          "Staking amount must be greater than zero")
+
       //reverts 2: require(staker[msg.sender].amount >= _amount, "Insufficient unstake");
-      await expect(this.Farm.connect(user2).stake(utils.parseEther('1'))).to.be.revertedWith("Insufficient lpToken balance")
+      await expect(this.Farm.connect(user2).stake(
+        utils.parseEther('1'))).to.be.revertedWith(
+          "Insufficient lpToken balance")
 
     })
     

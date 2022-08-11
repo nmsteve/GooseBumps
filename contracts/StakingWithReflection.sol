@@ -44,14 +44,15 @@ contract GooseBumpsStakingWithReflection is Ownable, Pausable {
     constructor(
         IERC20 _stakeToken,
         IERC20 _rewardsToken,
-        address _treasury,
+        //address _treasury,
+      
         address _rewardWallet,
         uint256 _rewardPerBlockTokenN,
         uint256 _rewardPerBlockTokenD
     ) {
         stakeToken = _stakeToken;
         rewardsToken = _rewardsToken;
-        TREASURY = _treasury;
+        //TREASURY = _treasury;
         REWARD_WALLET = _rewardWallet;
         rewardPerBlockTokenN = _rewardPerBlockTokenN;
         rewardPerBlockTokenD = _rewardPerBlockTokenD;
