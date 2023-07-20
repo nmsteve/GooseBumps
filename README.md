@@ -2,7 +2,7 @@
 
 These are stacking smart contracts and their exhaustive test
 
-### Tool and Programming languages.
+### Tools and Programming languages.
 
 * Hardhat
 * Solidity
